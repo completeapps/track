@@ -193,7 +193,6 @@ button:active {
   font-weight: 500;
 }
 
-/* PR highlight */
 .session-card-pr {
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--accent-soft);
