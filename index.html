@@ -20,23 +20,23 @@
     <section id="sessionListView" class="card">
       <div class="section-header">
         <span class="muted">Sessions</span>
-        <!-- filters will go here later -->
       </div>
       <div id="sessionGrid" class="session-grid"></div>
     </section>
 
     <!-- Session detail view -->
-    <section class="card">
-  <div class="section-header">
-    <button id="backToSessions" class="secondary">&larr; Sessions</button>
-    <span class="muted" id="detailTitle">Session</span>
-    <div style="display:flex;align-items:center;gap:0.5rem;">
-      <span id="saveStatus" class="muted" style="opacity:0;font-size:0.75rem;">Saved</span>
-      <button id="editSession" class="secondary">Edit</button>
-      <button id="saveSession" class="primary" style="display:none;">Save</button>
-    </div>
-  </div>
-</section>
+    <section id="sessionDetailView" style="display:none;">
+      <section class="card">
+        <div class="section-header">
+          <button id="backToSessions" class="secondary">&larr; Sessions</button>
+          <span class="muted" id="detailTitle">Session</span>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span id="saveStatus" class="muted" style="opacity:0;font-size:0.75rem;">Saved</span>
+            <button id="editSession" class="secondary">Edit</button>
+            <button id="saveSession" class="primary" style="display:none;">Save</button>
+          </div>
+        </div>
+      </section>
 
       <!-- Session meta -->
       <section class="card">
@@ -112,8 +112,6 @@
     </section>
   </main>
 
-  <!-- Firebase config (for later, already created) -->
-  <script type="module" src="firebase.js"></script>
-  <script type="module" src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
