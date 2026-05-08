@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Track – Long Jump Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #050608;
+      --fg: #f5f5f5;
+      --accent: #48c774;
+      --muted: #888;
+      --card: #111218;
+      --radius: 8px;
+      --pad: 0.75rem;
+      --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      min-height: 100vh;
+      justify-content: center;
+    }
+    main {
+      width: 100%;
+      max-width: 720px;
+      padding: 1.25rem;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 1.3rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: var(--pad);
+      margin-bottom: 1rem;
+      border: 1px solid #1c1d24;
+    }
+    .row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .row > * {
+      flex: 1 1 120px;
+    }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.25rem;
+      color: var(--muted);
+    }
+    input, select, textarea, button {
+      font: inherit;
+      border-radius: 999px;
+      border: 1px solid #2b2d3a;
+      background: #0b0c12;
+      color: var(--fg);
+      padding: 0.4rem 0.7rem;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 2.5rem;
+      border-radius: var(--radius);
+    }
+    button {
+      border-radius: 999px;
+      cursor: pointer;
+      border-color: transparent;
+      background: var(--accent);
+      color: #050608;
+      font-size: 0.9rem;
+      padding-inline: 1rem;
+      white-space: nowrap;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--muted);
+      border-color: #2b2d3a;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 0.35rem 0.4rem;
+      text-align: left;
+    }
+    thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.7rem;
+      border-bottom: 1px solid #222332;
+    }
+    tbody tr:nth-child(even) {
+      background: #0b0c12;
+    }
+    .pill {
+      border-radius: 999px;
+      padding: 0.1rem 0.45rem;
+      border: 1px solid #2b2d3a;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .pill.meet { border-color: #ff7675; color: #ff7675; }
+    .pill.practice { border-color: #74b9ff; color: #74b9ff; }
+    .pill.test { border-color: #ffeaa7; color: #ffeaa7; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Track</h1>
+        <div class="muted">Long jump log</div>
+      </div>
+      <button id="settingsButton" class="secondary">•••</button>
+    </header>
+
+    <section class="card" aria-label="New jump">
+      <div class="row">
+        <div>
+          <label for="date">Date</label>
+          <input id="date" type="date">
+        </div>
+        <div>
+          <label for="attempt">Attempt</label>
+          <input id="attempt" type="number" min="1" value="1">
+        </div>
+        <div>
+          <label for="distance">Distance</label>
+          <input id="distance" type="number" step="0.01" placeholder="5.34">
+        </div>
+        <div>
+          <label for="unit">Unit</label>
+          <select id="unit">
+            <option value="m">m</option>
+            <option value="ft">ft</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:0.5rem;">
+        <div>
+          <label for="context">Context</label>
+          <select id="context">
+            <option value="practice">Practice</option>
+            <option value="meet">Meet</option>
+            <option value="test">Test</option>
+          </select>
+        </div>
+        <div style="flex:2 1 200px;">
+          <label for="notes">Notes</label>
+          <textarea id="notes" placeholder="Board, wind, how it felt…"></textarea>
+        </div>
+        <div style="align-self:flex-end; text-align:right;">
+          <button id="add">Log jump</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Log">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>A</th>
+            <th>Dist</th>
+            <th>Tag</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const storageKey = 'track-log-v1';
+    const dateEl = document.getElementById('date');
+    const attemptEl = document.getElementById('attempt');
+    const distanceEl = document.getElementById('distance');
+    const unitEl = document.getElementById('unit');
+    const contextEl = document.getElementById('context');
+    const notesEl = document.getElementById('notes');
+    const logBody = document.getElementById('logBody');
+    const addBtn = document.getElementById('add');
+
+    dateEl.valueAsNumber = Date.now() - new Date().getTimezoneOffset() * 60000;
+
+    let entries = load();
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function save() {
+      localStorage.setItem(storageKey, JSON.stringify(entries));
+    }
+
+    function render() {
+      logBody.innerHTML = '';
+      const sorted = [...entries].sort((a, b) => (a.date > b.date ? 1 : -1));
+      for (const e of sorted) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${e.date}</td>
+          <td>${e.attempt}</td>
+          <td>${e.distance.toFixed(2)} ${e.unit}</td>
+          <td><span class="pill ${e.context}">${e.context}</span></td>
+          <td>${e.notes || ''}</td>
+          <td><button class="secondary" data-id="${e.id}">×</button></td>
+        `;
+        logBody.appendChild(tr);
+      }
+    }
+
+    addBtn.addEventListener('click', () => {
+      const distance = parseFloat(distanceEl.value);
+      if (!distance) return;
+      const entry = {
+        id: Date.now().toString(36),
+        date: dateEl.value || new Date().toISOString().slice(0, 10),
+        attempt: parseInt(attemptEl.value || '1', 10),
+        distance,
+        unit: unitEl.value,
+        context: contextEl.value,
+        notes: notesEl.value.trim()
+      };
+      entries.push(entry);
+      save();
+      render();
+      distanceEl.value = '';
+      notesEl.value = '';
+      attemptEl.value = (entry.attempt + 1).toString();
+      distanceEl.focus();
+    });
+
+    logBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-id]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      entries = entries.filter(x => x.id !== id);
+      save();
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
