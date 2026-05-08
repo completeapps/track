@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Track – Long Jump Log</title>
+  <title>Track – Long Jump Meet Log</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
     :root {
       --bg: #050608;
@@ -96,36 +97,47 @@
       color: var(--muted);
       border-color: #2b2d3a;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
     }
-    th, td {
-      padding: 0.35rem 0.4rem;
-      text-align: left;
+    .attempt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: 0.5rem;
     }
-    thead {
+    .attempt-row {
+      display: grid;
+      grid-template-columns: minmax(0, 70px) minmax(0, 1fr) minmax(0, 80px) minmax(0, 90px);
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .attempt-cell span.muted {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+    .scratch-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .scratch-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.8rem;
       color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.7rem;
-      border-bottom: 1px solid #222332;
     }
-    tbody tr:nth-child(even) {
-      background: #0b0c12;
+    .scratch-label input[type="checkbox"] {
+      width: auto;
+      height: auto;
     }
-    .pill {
-      border-radius: 999px;
-      padding: 0.1rem 0.45rem;
-      border: 1px solid #2b2d3a;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .pill.meet { border-color: #ff7675; color: #ff7675; }
-    .pill.practice { border-color: #74b9ff; color: #74b9ff; }
-    .pill.test { border-color: #ffeaa7; color: #ffeaa7; }
   </style>
 </head>
 <body>
@@ -133,145 +145,175 @@
     <header>
       <div>
         <h1>Track</h1>
-        <div class="muted">Long jump log</div>
+        <div class="muted">Long jump meet log</div>
       </div>
-      <button id="settingsButton" class="secondary">•••</button>
     </header>
 
-    <section class="card" aria-label="New jump">
+    <!-- Meet meta -->
+    <section class="card">
       <div class="row">
         <div>
-          <label for="date">Date</label>
-          <input id="date" type="date">
+          <label for="meetName">Name</label>
+          <input id="meetName" type="text" placeholder="Conference, Invite, etc.">
         </div>
         <div>
-          <label for="attempt">Attempt</label>
-          <input id="attempt" type="number" min="1" value="1">
+          <label for="location">Location</label>
+          <input id="location" type="text" placeholder="School or venue">
         </div>
         <div>
-          <label for="distance">Distance</label>
-          <input id="distance" type="number" step="0.01" placeholder="5.34">
-        </div>
-        <div>
-          <label for="unit">Unit</label>
-          <select id="unit">
-            <option value="m">m</option>
-            <option value="ft">ft</option>
-          </select>
-        </div>
-      </div>
-      <div class="row" style="margin-top:0.5rem;">
-        <div>
-          <label for="context">Context</label>
-          <select id="context">
-            <option value="practice">Practice</option>
-            <option value="meet">Meet</option>
-            <option value="test">Test</option>
-          </select>
-        </div>
-        <div style="flex:2 1 200px;">
-          <label for="notes">Notes</label>
-          <textarea id="notes" placeholder="Board, wind, how it felt…"></textarea>
-        </div>
-        <div style="align-self:flex-end; text-align:right;">
-          <button id="add">Log jump</button>
+          <label for="date">Date (M/D/Y)</label>
+          <input id="date" type="text" placeholder="5/12/26">
         </div>
       </div>
     </section>
 
-    <section class="card" aria-label="Log">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>A</th>
-            <th>Dist</th>
-            <th>Tag</th>
-            <th>Notes</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="logBody"></tbody>
-      </table>
+    <!-- Prelims attempts -->
+    <section class="card">
+      <div class="section-header">
+        <span class="muted">Prelims</span>
+      </div>
+      <div id="prelimsList" class="attempt-list"></div>
+      <button id="addPrelim" class="secondary">Add attempt</button>
+    </section>
+
+    <!-- Finals -->
+    <section class="card">
+      <div class="section-header">
+        <span class="muted">Finals</span>
+      </div>
+      <div class="row" style="margin-bottom:0.5rem;">
+        <div>
+          <label for="finalsStatus">Finals status</label>
+          <select id="finalsStatus">
+            <option value="none">Meet had no finals</option>
+            <option value="not-made">Didn’t make finals</option>
+            <option value="made">Had finals</option>
+          </select>
+        </div>
+      </div>
+      <div id="finalsBlock" style="display:none;">
+        <div id="finalsList" class="attempt-list"></div>
+        <button id="addFinal" class="secondary">Add finals attempt</button>
+      </div>
+    </section>
+
+    <!-- Result -->
+    <section class="card">
+      <div class="row">
+        <div>
+          <label for="place">Place</label>
+          <input id="place" type="text" placeholder="e.g. 2nd">
+        </div>
+        <div>
+          <label for="points">Points</label>
+          <input id="points" type="number" min="0" placeholder="5">
+          <label style="display:flex;align-items:center;gap:0.25rem;margin-top:0.25rem;">
+            <input id="noPoints" type="checkbox">
+            <span class="muted">None</span>
+          </label>
+        </div>
+      </div>
     </section>
   </main>
 
   <script>
-    const storageKey = 'track-log-v1';
-    const dateEl = document.getElementById('date');
-    const attemptEl = document.getElementById('attempt');
-    const distanceEl = document.getElementById('distance');
-    const unitEl = document.getElementById('unit');
-    const contextEl = document.getElementById('context');
-    const notesEl = document.getElementById('notes');
-    const logBody = document.getElementById('logBody');
-    const addBtn = document.getElementById('add');
+    const prelimsList = document.getElementById('prelimsList');
+    const finalsList = document.getElementById('finalsList');
+    const addPrelimBtn = document.getElementById('addPrelim');
+    const addFinalBtn = document.getElementById('addFinal');
+    const finalsStatusEl = document.getElementById('finalsStatus');
+    const finalsBlock = document.getElementById('finalsBlock');
+    const noPointsEl = document.getElementById('noPoints');
+    const pointsEl = document.getElementById('points');
 
-    dateEl.valueAsNumber = Date.now() - new Date().getTimezoneOffset() * 60000;
+    let prelims = [];
+    let finals = [];
 
-    let entries = load();
+    function makeAttemptRow(attempt) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'attempt-row';
+      wrapper.innerHTML = `
+        <div class="attempt-cell">
+          <span class="muted">Attempt</span>
+          <span>${attempt.index}</span>
+        </div>
+        <div>
+          <label>Distance</label>
+          <input type="number" step="0.01" value="${attempt.distance ?? ''}">
+        </div>
+        <div>
+          <label>Unit</label>
+          <select>
+            <option value="m"${attempt.unit === 'm' ? ' selected' : ''}>m</option>
+            <option value="ft"${attempt.unit === 'ft' ? ' selected' : ''}>ft</option>
+          </select>
+        </div>
+        <div class="scratch-cell">
+          <label class="scratch-label">
+            <input type="checkbox"${attempt.scratch ? ' checked' : ''}>
+            <span>Scratch</span>
+          </label>
+        </div>
+      `;
 
-    function load() {
-      try {
-        const raw = localStorage.getItem(storageKey);
-        return raw ? JSON.parse(raw) : [];
-      } catch {
-        return [];
-      }
+      const distInput = wrapper.querySelector('input[type="number"]');
+      const unitSelect = wrapper.querySelector('select');
+      const scratchInput = wrapper.querySelector('input[type="checkbox"]');
+
+      distInput.addEventListener('input', () => {
+        attempt.distance = distInput.value ? parseFloat(distInput.value) : null;
+      });
+      unitSelect.addEventListener('change', () => {
+        attempt.unit = unitSelect.value;
+      });
+      scratchInput.addEventListener('change', () => {
+        attempt.scratch = scratchInput.checked;
+      });
+
+      return wrapper;
     }
 
-    function save() {
-      localStorage.setItem(storageKey, JSON.stringify(entries));
+    function renderAttempts() {
+      prelimsList.innerHTML = '';
+      prelims.forEach(a => prelimsList.appendChild(makeAttemptRow(a)));
+
+      finalsList.innerHTML = '';
+      finals.forEach(a => finalsList.appendChild(makeAttemptRow(a)));
     }
 
-    function render() {
-      logBody.innerHTML = '';
-      const sorted = [...entries].sort((a, b) => (a.date > b.date ? 1 : -1));
-      for (const e of sorted) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${e.date}</td>
-          <td>${e.attempt}</td>
-          <td>${e.distance.toFixed(2)} ${e.unit}</td>
-          <td><span class="pill ${e.context}">${e.context}</span></td>
-          <td>${e.notes || ''}</td>
-          <td><button class="secondary" data-id="${e.id}">×</button></td>
-        `;
-        logBody.appendChild(tr);
-      }
+    function addAttempt(scope) {
+      const list = scope === 'prelims' ? prelims : finals;
+      const nextIndex = list.length + 1;
+      list.push({
+        index: nextIndex,
+        distance: null,
+        unit: 'm',
+        scratch: false
+      });
+      renderAttempts();
     }
 
-    addBtn.addEventListener('click', () => {
-      const distance = parseFloat(distanceEl.value);
-      if (!distance) return;
-      const entry = {
-        id: Date.now().toString(36),
-        date: dateEl.value || new Date().toISOString().slice(0, 10),
-        attempt: parseInt(attemptEl.value || '1', 10),
-        distance,
-        unit: unitEl.value,
-        context: contextEl.value,
-        notes: notesEl.value.trim()
-      };
-      entries.push(entry);
-      save();
-      render();
-      distanceEl.value = '';
-      notesEl.value = '';
-      attemptEl.value = (entry.attempt + 1).toString();
-      distanceEl.focus();
+    addPrelimBtn.addEventListener('click', () => addAttempt('prelims'));
+    addFinalBtn.addEventListener('click', () => addAttempt('finals'));
+
+    finalsStatusEl.addEventListener('change', () => {
+      const val = finalsStatusEl.value;
+      finalsBlock.style.display = val === 'made' ? 'block' : 'none';
     });
 
-    logBody.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-id]');
-      if (!btn) return;
-      const id = btn.getAttribute('data-id');
-      entries = entries.filter(x => x.id !== id);
-      save();
-      render();
+    noPointsEl.addEventListener('change', () => {
+      if (noPointsEl.checked) {
+        pointsEl.value = '';
+        pointsEl.disabled = true;
+      } else {
+        pointsEl.disabled = false;
+      }
     });
 
-    render();
+    // initial 3 + 3 attempts
+    for (let i = 0; i < 3; i++) addAttempt('prelims');
+    for (let i = 0; i < 3; i++) addAttempt('finals');
+    finalsBlock.style.display = 'none';
   </script>
 </body>
 </html>
