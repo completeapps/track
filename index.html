@@ -11,21 +11,30 @@
     <header>
       <div>
         <h1>Track</h1>
-        <div class="muted">Long jump log</div>
+        <div class="muted">Long jump sessions</div>
       </div>
-      <button id="addSession" class="secondary">Add session</button>
+      <button id="addSession" class="primary">Add session</button>
     </header>
 
     <!-- Sessions list (home view) -->
     <section id="sessionListView" class="card">
       <div class="section-header">
         <span class="muted">Sessions</span>
+        <!-- filters will go here later -->
       </div>
       <div id="sessionGrid" class="session-grid"></div>
     </section>
 
     <!-- Session detail view -->
     <section id="sessionDetailView" style="display:none;">
+      <section class="card">
+        <div class="section-header">
+          <button id="backToSessions" class="secondary">&larr; Sessions</button>
+          <span class="muted" id="detailTitle">Session</span>
+          <button id="saveSession" class="primary">Save</button>
+        </div>
+      </section>
+
       <!-- Session meta -->
       <section class="card">
         <div class="row">
@@ -48,15 +57,16 @@
       <section class="card">
         <div class="section-header">
           <span class="muted">Prelims</span>
+          <button id="addPrelim" class="secondary">Add attempt</button>
         </div>
         <div id="prelimsList" class="attempt-list"></div>
-        <button id="addPrelim" class="secondary">Add attempt</button>
       </section>
 
       <!-- Finals -->
       <section class="card">
         <div class="section-header">
           <span class="muted">Finals</span>
+          <button id="addFinal" class="secondary">Add attempt</button>
         </div>
         <div class="row" style="margin-bottom:0.5rem;">
           <div>
@@ -70,7 +80,6 @@
         </div>
         <div id="finalsBlock" style="display:none;">
           <div id="finalsList" class="attempt-list"></div>
-          <button id="addFinal" class="secondary">Add finals attempt</button>
         </div>
       </section>
 
@@ -100,6 +109,8 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <!-- Firebase config (for later, already created) -->
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
