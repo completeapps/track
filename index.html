@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Track – Long Jump Meet Log</title>
+  <title>Track – Long Jump Log</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,81 +11,92 @@
     <header>
       <div>
         <h1>Track</h1>
-        <div class="muted">Long jump meet log</div>
+        <div class="muted">Long jump log</div>
       </div>
-      <button id="addJumpHeader" class="secondary">Add jump</button>
+      <button id="addSession" class="secondary">Add session</button>
     </header>
 
-    <!-- Meet meta -->
-    <section class="card">
-      <div class="row">
-        <div>
-          <label for="meetName">Name</label>
-          <input id="meetName" type="text" placeholder="Conference, Invite, etc.">
-        </div>
-        <div>
-          <label for="location">Location</label>
-          <input id="location" type="text" placeholder="School or venue">
-        </div>
-        <div>
-          <label for="date">Date (M/D/Y)</label>
-          <input id="date" type="text" placeholder="5/12/26">
-        </div>
-      </div>
-    </section>
-
-    <!-- Prelims attempts -->
-    <section class="card">
+    <!-- Sessions list (home view) -->
+    <section id="sessionListView" class="card">
       <div class="section-header">
-        <span class="muted">Prelims</span>
+        <span class="muted">Sessions</span>
       </div>
-      <div id="prelimsList" class="attempt-list"></div>
-      <button id="addPrelim" class="secondary">Add attempt</button>
+      <div id="sessionGrid" class="session-grid"></div>
     </section>
 
-    <!-- Finals -->
-    <section class="card">
-      <div class="section-header">
-        <span class="muted">Finals</span>
-      </div>
-      <div class="row" style="margin-bottom:0.5rem;">
-        <div>
-          <label for="finalsStatus">Finals status</label>
-          <select id="finalsStatus">
-            <option value="none">Meet had no finals</option>
-            <option value="not-made">Didn’t make finals</option>
-            <option value="made">Had finals</option>
-          </select>
+    <!-- Session detail view -->
+    <section id="sessionDetailView" style="display:none;">
+      <!-- Session meta -->
+      <section class="card">
+        <div class="row">
+          <div>
+            <label for="meetName">Name</label>
+            <input id="meetName" type="text" placeholder="Conference, Practice, etc.">
+          </div>
+          <div>
+            <label for="location">Location</label>
+            <input id="location" type="text" placeholder="School or venue">
+          </div>
+          <div>
+            <label for="date">Date (M/D/Y)</label>
+            <input id="date" type="text" placeholder="5/12/26">
+          </div>
         </div>
-      </div>
-      <div id="finalsBlock" style="display:none;">
-        <div id="finalsList" class="attempt-list"></div>
-        <button id="addFinal" class="secondary">Add finals attempt</button>
-      </div>
-    </section>
+      </section>
 
-    <!-- Result -->
-    <section class="card">
-      <div class="row">
-        <div>
-          <label for="place">Place</label>
-          <input id="place" type="text" placeholder="e.g. 2nd">
+      <!-- Prelims attempts -->
+      <section class="card">
+        <div class="section-header">
+          <span class="muted">Prelims</span>
         </div>
-        <div>
-          <label for="points">Points</label>
-          <input id="points" type="number" min="0" placeholder="5">
-          <label class="checkbox-row">
-            <input id="noPoints" type="checkbox">
-            <span class="muted">None</span>
-          </label>
-        </div>
-      </div>
-    </section>
+        <div id="prelimsList" class="attempt-list"></div>
+        <button id="addPrelim" class="secondary">Add attempt</button>
+      </section>
 
-    <!-- Details -->
-    <section class="card">
-      <label for="details">Details</label>
-      <textarea id="details" placeholder="Conditions, board, competition, how it felt…"></textarea>
+      <!-- Finals -->
+      <section class="card">
+        <div class="section-header">
+          <span class="muted">Finals</span>
+        </div>
+        <div class="row" style="margin-bottom:0.5rem;">
+          <div>
+            <label for="finalsStatus">Finals status</label>
+            <select id="finalsStatus">
+              <option value="none">Meet had no finals</option>
+              <option value="not-made">Didn’t make finals</option>
+              <option value="made">Had finals</option>
+            </select>
+          </div>
+        </div>
+        <div id="finalsBlock" style="display:none;">
+          <div id="finalsList" class="attempt-list"></div>
+          <button id="addFinal" class="secondary">Add finals attempt</button>
+        </div>
+      </section>
+
+      <!-- Result -->
+      <section class="card">
+        <div class="row">
+          <div>
+            <label for="place">Place</label>
+            <input id="place" type="text" placeholder="e.g. 2nd">
+          </div>
+          <div>
+            <label for="points">Points</label>
+            <input id="points" type="number" min="0" placeholder="5">
+            <label class="checkbox-row">
+              <input id="noPoints" type="checkbox">
+              <span class="muted">None</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Details -->
+      <section class="card">
+        <label for="details">Details</label>
+        <textarea id="details" placeholder="Conditions, board, competition, how it felt…"></textarea>
+      </section>
     </section>
   </main>
 
