@@ -26,14 +26,17 @@
     </section>
 
     <!-- Session detail view -->
-    <section id="sessionDetailView" style="display:none;">
-      <section class="card">
-        <div class="section-header">
-          <button id="backToSessions" class="secondary">&larr; Sessions</button>
-          <span class="muted" id="detailTitle">Session</span>
-          <button id="saveSession" class="primary">Save</button>
-        </div>
-      </section>
+    <section class="card">
+  <div class="section-header">
+    <button id="backToSessions" class="secondary">&larr; Sessions</button>
+    <span class="muted" id="detailTitle">Session</span>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <span id="saveStatus" class="muted" style="opacity:0;font-size:0.75rem;">Saved</span>
+      <button id="editSession" class="secondary">Edit</button>
+      <button id="saveSession" class="primary" style="display:none;">Save</button>
+    </div>
+  </div>
+</section>
 
       <!-- Session meta -->
       <section class="card">
