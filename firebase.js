@@ -1,11 +1,9 @@
-// Import the functions you need from the SDKs you need
+// firebase.js
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCAqmHDZQWBUTcXqYCRQqjGnAtoecIUTb4",
   authDomain: "track-d51cd.firebaseapp.com",
@@ -19,3 +17,23 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+
+// Auth
+const auth = getAuth(app);
+
+// Sign in anonymously
+signInAnonymously(auth).catch((error) => {
+  console.error("Anon sign-in error", error);
+});
+
+// Expose a promise so app.js can wait for UID if needed
+export const authReady = new Promise((resolve) => {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log("Signed in as", user.uid);
+      resolve(user);
+    }
+  });
+});
+
+export { app, auth };
