@@ -2,6 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // NEW
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -21,12 +22,15 @@ const analytics = getAnalytics(app);
 // Auth
 const auth = getAuth(app);
 
+// Firestore
+const db = getFirestore(app); // NEW
+
 // Sign in anonymously
 signInAnonymously(auth).catch((error) => {
   console.error("Anon sign-in error", error);
 });
 
-// Expose a promise so app.js can wait for UID if needed
+// Expose a promise so app.js can wait for UID
 export const authReady = new Promise((resolve) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -36,4 +40,4 @@ export const authReady = new Promise((resolve) => {
   });
 });
 
-export { app, auth };
+export { app, auth, db };
