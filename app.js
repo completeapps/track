@@ -1,57 +1,55 @@
 // app.js (module)
+import { db, authReady } from "./firebase.js";
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  serverTimestamp
+} from "firebase/firestore";
 
-let sessions = [
-  {
-    id: 's1',
-    type: 'meet',
-    name: 'Practice',
-    location: 'Home track',
-    date: '5/5/26',
-    finalsStatus: 'none',
-    prelims: [
-      { index: 1, feet: 18, inches: 6.25, scratch: false },
-      { index: 2, feet: 18, inches: 10.5, scratch: false },
-      { index: 3, feet: 19, inches: 0, scratch: true }
-    ],
-    finals: [],
-    place: '',
-    points: null,
-    details: ''
-  }
-];
-
+// Local state
+let sessions = [];
 let currentSessionId = null;
 let originalSnapshot = null;
 let dirty = false;
+let mode = "view"; // "view" | "edit"
+let currentUser = null;
 
 // Elements
-const sessionListView = document.getElementById('sessionListView');
-const sessionDetailView = document.getElementById('sessionDetailView');
-const sessionGrid = document.getElementById('sessionGrid');
-const addSessionBtn = document.getElementById('addSession');
-const backToSessionsBtn = document.getElementById('backToSessions');
-const saveSessionBtn = document.getElementById('saveSession');
-const detailTitleEl = document.getElementById('detailTitle');
+const sessionListView = document.getElementById("sessionListView");
+const sessionDetailView = document.getElementById("sessionDetailView");
+const sessionGrid = document.getElementById("sessionGrid");
+const addSessionBtn = document.getElementById("addSession");
+const backToSessionsBtn = document.getElementById("backToSessions");
+const saveSessionBtn = document.getElementById("saveSession");
+const editSessionBtn = document.getElementById("editSession");
+const saveStatusEl = document.getElementById("saveStatus");
+const detailTitleEl = document.getElementById("detailTitle");
 
-const meetNameEl = document.getElementById('meetName');
-const locationEl = document.getElementById('location');
-const dateEl = document.getElementById('date');
+const meetNameEl = document.getElementById("meetName");
+const locationEl = document.getElementById("location");
+const dateEl = document.getElementById("date");
 
-const prelimsList = document.getElementById('prelimsList');
-const finalsList = document.getElementById('finalsList');
-const addPrelimBtn = document.getElementById('addPrelim');
-const addFinalBtn = document.getElementById('addFinal');
-const finalsStatusEl = document.getElementById('finalsStatus');
-const finalsBlock = document.getElementById('finalsBlock');
-const placeEl = document.getElementById('place');
-const pointsEl = document.getElementById('points');
-const noPointsEl = document.getElementById('noPoints');
-const detailsEl = document.getElementById('details');
+const prelimsList = document.getElementById("prelimsList");
+const finalsList = document.getElementById("finalsList");
+const addPrelimBtn = document.getElementById("addPrelim");
+const addFinalBtn = document.getElementById("addFinal");
+const finalsStatusEl = document.getElementById("finalsStatus");
+const finalsBlock = document.getElementById("finalsBlock");
+const placeEl = document.getElementById("place");
+const pointsEl = document.getElementById("points");
+const noPointsEl = document.getElementById("noPoints");
+const detailsEl = document.getElementById("details");
 
 // Helpers
 function formatMark(attempt) {
-  if (attempt.scratch) return 'SCR';
-  if (attempt.feet == null && attempt.inches == null) return '';
+  if (attempt.scratch) return "SCR";
+  if (attempt.feet == null && attempt.inches == null) return "";
   const feet = attempt.feet ?? 0;
   const inches = attempt.inches ?? 0;
   return `${feet}' ${inches}"`;
@@ -62,44 +60,24 @@ function toInches(a) {
 }
 
 function bestMark(session) {
-  const all = [...session.prelims, ...session.finals].filter(a => !a.scratch && a.feet != null);
-  if (all.length === 0) return '';
+  const all = [...(session.prelims || []), ...(session.finals || [])].filter(
+    (a) => !a.scratch && a.feet != null
+  );
+  if (all.length === 0) return "";
   const best = all.reduce((b, a) => (toInches(a) > toInches(b) ? a : b));
   return formatMark(best);
 }
 
 function overallBestInches() {
-  const allAttempts = sessions.flatMap(s => [...s.prelims, ...s.finals].filter(a => !a.scratch && a.feet != null));
+  const allAttempts = sessions.flatMap((s) =>
+    [...(s.prelims || []), ...(s.finals || [])].filter(
+      (a) => !a.scratch && a.feet != null
+    )
+  );
   if (allAttempts.length === 0) return null;
   return allAttempts.reduce((max, a) => Math.max(max, toInches(a)), 0);
 }
 
-// Sessions list
-function renderSessionList() {
-  const overallBest = overallBestInches();
-  sessionGrid.innerHTML = '';
-  sessions.forEach(session => {
-    const bm = bestMark(session);
-    const hasBest = bm && overallBest !== null && toInchesFromString(bm) === overallBest;
-
-    const div = document.createElement('div');
-    div.className = 'session-card' + (hasBest ? ' session-card-pr' : '');
-    div.innerHTML = `
-      <div class="session-card-title-row">
-        <div class="session-card-title">${session.name || 'Untitled'}</div>
-        <div class="session-card-type">${(session.type || 'session').toUpperCase()}</div>
-      </div>
-      <div class="session-card-meta">${session.location || 'No location'} · ${session.date || 'No date'}</div>
-      <div class="session-card-mark">
-        <span>${bm || 'No mark'}</span>
-      </div>
-    `;
-    div.addEventListener('click', () => openSession(session.id));
-    sessionGrid.appendChild(div);
-  });
-}
-
-// Parse string like "18' 6.25\"" back to inches (used for PR highlight)
 function toInchesFromString(mark) {
   const match = mark.match(/(\d+)'[\s]+([\d.]+)"/);
   if (!match) return 0;
@@ -108,21 +86,83 @@ function toInchesFromString(mark) {
   return feet * 12 + inches;
 }
 
-// Open session detail
+// UI mode
+function setDetailMode(nextMode) {
+  mode = nextMode;
+  const isEdit = mode === "edit";
+
+  const inputs = [
+    meetNameEl,
+    locationEl,
+    dateEl,
+    finalsStatusEl,
+    placeEl,
+    pointsEl,
+    detailsEl
+  ];
+  inputs.forEach((el) => {
+    el.disabled = !isEdit;
+  });
+  // attempts (Feet/Inches/Scratch) disabled state handled via class
+  const attemptInputs = sessionDetailView.querySelectorAll(
+    ".attempt-row input"
+  );
+  attemptInputs.forEach((input) => {
+    input.disabled = !isEdit;
+  });
+
+  if (isEdit) {
+    editSessionBtn.style.display = "none";
+    saveSessionBtn.style.display = "inline-block";
+  } else {
+    editSessionBtn.style.display = "inline-block";
+    saveSessionBtn.style.display = "none";
+  }
+}
+
+// Sessions list
+function renderSessionList() {
+  const overallBest = overallBestInches();
+  sessionGrid.innerHTML = "";
+  sessions.forEach((session) => {
+    const bm = bestMark(session);
+    const hasBest =
+      bm && overallBest !== null && toInchesFromString(bm) === overallBest;
+
+    const div = document.createElement("div");
+    div.className = "session-card" + (hasBest ? " session-card-pr" : "");
+    div.innerHTML = `
+      <div class="session-card-title-row">
+        <div class="session-card-title">${session.name || "Untitled"}</div>
+        <div class="session-card-type">${(session.type || "session").toUpperCase()}</div>
+      </div>
+      <div class="session-card-meta">${session.location || "No location"} · ${
+      session.date || "No date"
+    }</div>
+      <div class="session-card-mark">
+        <span>${bm || "No mark"}</span>
+      </div>
+    `;
+    div.addEventListener("click", () => openSession(session.id));
+    sessionGrid.appendChild(div);
+  });
+}
+
+// Detail
 function openSession(id) {
-  const session = sessions.find(s => s.id === id);
+  const session = sessions.find((s) => s.id === id);
   if (!session) return;
   currentSessionId = id;
 
   // Fill meta
-  meetNameEl.value = session.name || '';
-  locationEl.value = session.location || '';
-  dateEl.value = session.date || '';
-  finalsStatusEl.value = session.finalsStatus || 'none';
-  placeEl.value = session.place || '';
-  detailsEl.value = session.details || '';
+  meetNameEl.value = session.name || "";
+  locationEl.value = session.location || "";
+  dateEl.value = session.date || "";
+  finalsStatusEl.value = session.finalsStatus || "none";
+  placeEl.value = session.place || "";
+  detailsEl.value = session.details || "";
   if (session.points == null) {
-    pointsEl.value = '';
+    pointsEl.value = "";
     noPointsEl.checked = true;
     pointsEl.disabled = true;
   } else {
@@ -132,7 +172,8 @@ function openSession(id) {
   }
 
   // Finals visibility
-  finalsBlock.style.display = session.finalsStatus === 'made' ? 'block' : 'none';
+  finalsBlock.style.display =
+    session.finalsStatus === "made" ? "block" : "none";
 
   // Attempts
   renderAttempts(session);
@@ -140,15 +181,18 @@ function openSession(id) {
   // Dirty tracking
   originalSnapshot = JSON.stringify(session);
   dirty = false;
-  detailTitleEl.textContent = session.name || 'Session';
+  detailTitleEl.textContent = session.name || "Session";
 
-  sessionListView.style.display = 'none';
-  sessionDetailView.style.display = 'block';
+  sessionListView.style.display = "none";
+  sessionDetailView.style.display = "block";
+
+  setDetailMode("view");
+  hideSaved();
 }
 
 function syncCurrentSessionMeta() {
   if (!currentSessionId) return;
-  const session = sessions.find(s => s.id === currentSessionId);
+  const session = sessions.find((s) => s.id === currentSessionId);
   if (!session) return;
 
   session.name = meetNameEl.value.trim();
@@ -157,16 +201,20 @@ function syncCurrentSessionMeta() {
   session.finalsStatus = finalsStatusEl.value;
   session.place = placeEl.value.trim();
   session.details = detailsEl.value.trim();
-  session.points = noPointsEl.checked ? null : (pointsEl.value === '' ? null : parseFloat(pointsEl.value));
-  detailTitleEl.textContent = session.name || 'Session';
+  session.points = noPointsEl.checked
+    ? null
+    : pointsEl.value === ""
+    ? null
+    : parseFloat(pointsEl.value);
+  detailTitleEl.textContent = session.name || "Session";
 
   const nowSnapshot = JSON.stringify(session);
   dirty = nowSnapshot !== originalSnapshot;
 }
 
 function makeAttemptRow(attempt) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'attempt-row';
+  const wrapper = document.createElement("div");
+  wrapper.className = "attempt-row";
   wrapper.innerHTML = `
     <div class="attempt-cell">
       <span class="muted">Attempt</span>
@@ -174,15 +222,17 @@ function makeAttemptRow(attempt) {
     </div>
     <div>
       <label>Feet</label>
-      <input type="number" step="1" min="0" value="${attempt.feet ?? ''}">
+      <input type="number" step="1" min="0" value="${attempt.feet ?? ""}">
     </div>
     <div>
       <label>Inches</label>
-      <input type="number" step="0.01" min="0" max="11.99" value="${attempt.inches ?? ''}">
+      <input type="number" step="0.01" min="0" max="11.99" value="${
+        attempt.inches ?? ""
+      }">
     </div>
     <div class="scratch-cell">
       <label class="scratch-label">
-        <input type="checkbox"${attempt.scratch ? ' checked' : ''}>
+        <input type="checkbox"${attempt.scratch ? " checked" : ""}>
         <span>Scratch</span>
       </label>
       <span class="attempt-preview">${formatMark(attempt)}</span>
@@ -192,26 +242,26 @@ function makeAttemptRow(attempt) {
   const feetInput = wrapper.querySelectorAll('input[type="number"]')[0];
   const inchesInput = wrapper.querySelectorAll('input[type="number"]')[1];
   const scratchInput = wrapper.querySelector('input[type="checkbox"]');
-  const previewSpan = wrapper.querySelector('.attempt-preview');
+  const previewSpan = wrapper.querySelector(".attempt-preview");
 
   function updatePreviewAndDirty() {
     previewSpan.textContent = formatMark(attempt);
     syncCurrentSessionMeta();
   }
 
-  feetInput.addEventListener('input', () => {
+  feetInput.addEventListener("input", () => {
     const v = feetInput.value;
-    attempt.feet = v === '' ? null : parseInt(v, 10);
+    attempt.feet = v === "" ? null : parseInt(v, 10);
     updatePreviewAndDirty();
   });
 
-  inchesInput.addEventListener('input', () => {
+  inchesInput.addEventListener("input", () => {
     const v = inchesInput.value;
-    attempt.inches = v === '' ? null : parseFloat(v);
+    attempt.inches = v === "" ? null : parseFloat(v);
     updatePreviewAndDirty();
   });
 
-  scratchInput.addEventListener('change', () => {
+  scratchInput.addEventListener("change", () => {
     attempt.scratch = scratchInput.checked;
     updatePreviewAndDirty();
   });
@@ -220,21 +270,33 @@ function makeAttemptRow(attempt) {
 }
 
 function renderAttempts(session) {
-  prelimsList.innerHTML = '';
-  session.prelims.forEach(a => prelimsList.appendChild(makeAttemptRow(a)));
+  prelimsList.innerHTML = "";
+  (session.prelims || []).forEach((a) =>
+    prelimsList.appendChild(makeAttemptRow(a))
+  );
 
-  finalsList.innerHTML = '';
-  session.finals.forEach(a => finalsList.appendChild(makeAttemptRow(a)));
+  finalsList.innerHTML = "";
+  (session.finals || []).forEach((a) =>
+    finalsList.appendChild(makeAttemptRow(a))
+  );
+
+  // Respect current mode
+  setDetailMode(mode);
 }
 
 // Add attempt
 function addAttempt(scope) {
   if (!currentSessionId) return;
-  const session = sessions.find(s => s.id === currentSessionId);
+  const session = sessions.find((s) => s.id === currentSessionId);
   if (!session) return;
-  const list = scope === 'prelims' ? session.prelims : session.finals;
-  const nextIndex = list.length + 1;
-  list.push({
+  const list = scope === "prelims" ? session.prelims : session.finals;
+  if (!list) {
+    if (scope === "prelims") session.prelims = [];
+    else session.finals = [];
+  }
+  const target = scope === "prelims" ? session.prelims : session.finals;
+  const nextIndex = target.length + 1;
+  target.push({
     index: nextIndex,
     feet: null,
     inches: null,
@@ -244,67 +306,112 @@ function addAttempt(scope) {
   syncCurrentSessionMeta();
 }
 
-// Create new session
-function createSession() {
-  const id = 's' + Date.now().toString(36);
-  const newSession = {
-    id,
-    type: 'practice',
-    name: 'New session',
-    location: '',
-    date: '',
-    finalsStatus: 'none',
+// Create new session (in Firestore)
+async function createSession() {
+  if (!currentUser) return;
+  const colRef = collection(db, "sessions");
+  const docRef = await addDoc(colRef, {
+    userId: currentUser.uid,
+    type: "practice",
+    name: "New session",
+    location: "",
+    date: "",
+    finalsStatus: "none",
     prelims: [],
     finals: [],
-    place: '',
+    place: "",
     points: null,
-    details: ''
-  };
-  sessions.unshift(newSession);
-  renderSessionList();
-  openSession(id);
+    details: "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  // Firestore snapshot listener will pick it up and call openSession when we click it
 }
 
-// Save session (for now just updates snapshot; Firebase later)
-function saveCurrentSession() {
+// Save current session to Firestore
+async function saveCurrentSession() {
   syncCurrentSessionMeta();
   if (!currentSessionId) return;
-  const session = sessions.find(s => s.id === currentSessionId);
+  const session = sessions.find((s) => s.id === currentSessionId);
   if (!session) return;
-  originalSnapshot = JSON.stringify(session);
-  dirty = false;
-  // TODO: later: push to Firebase here
+
+  const docRef = doc(db, "sessions", session.id);
+  const payload = {
+    name: session.name || "",
+    location: session.location || "",
+    date: session.date || "",
+    finalsStatus: session.finalsStatus || "none",
+    prelims: session.prelims || [],
+    finals: session.finals || [],
+    place: session.place || "",
+    points: session.points ?? null,
+    details: session.details || "",
+    type: session.type || "practice",
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    await updateDoc(docRef, payload);
+    originalSnapshot = JSON.stringify(session);
+    dirty = false;
+    setDetailMode("view");
+    showSaved();
+  } catch (err) {
+    console.error("Save error", err);
+    alert("Failed to save session.");
+  }
+}
+
+// Saved label
+function showSaved() {
+  saveStatusEl.textContent = "Saved";
+  saveStatusEl.style.opacity = "1";
+  setTimeout(() => {
+    saveStatusEl.style.opacity = "0";
+  }, 1500);
+}
+
+function hideSaved() {
+  saveStatusEl.style.opacity = "0";
 }
 
 // Events
-addSessionBtn.addEventListener('click', createSession);
-addPrelimBtn.addEventListener('click', () => addAttempt('prelims'));
-addFinalBtn.addEventListener('click', () => addAttempt('finals'));
-saveSessionBtn.addEventListener('click', saveCurrentSession);
+addSessionBtn.addEventListener("click", () => {
+  createSession();
+});
 
-backToSessionsBtn.addEventListener('click', () => {
-  if (dirty) {
-    const ok = confirm('You have unsaved changes. Go back and lose changes?');
+addPrelimBtn.addEventListener("click", () => addAttempt("prelims"));
+addFinalBtn.addEventListener("click", () => addAttempt("finals"));
+saveSessionBtn.addEventListener("click", saveCurrentSession);
+
+editSessionBtn.addEventListener("click", () => {
+  setDetailMode("edit");
+});
+
+backToSessionsBtn.addEventListener("click", () => {
+  if (mode === "edit" && dirty) {
+    const ok = confirm("You have unsaved changes. Go back and lose changes?");
     if (!ok) return;
   }
-  sessionDetailView.style.display = 'none';
-  sessionListView.style.display = 'block';
+  sessionDetailView.style.display = "none";
+  sessionListView.style.display = "block";
   renderSessionList();
 });
 
 // Finals status + meta inputs
-finalsStatusEl.addEventListener('change', () => {
+finalsStatusEl.addEventListener("change", () => {
   if (!currentSessionId) return;
-  const session = sessions.find(s => s.id === currentSessionId);
+  const session = sessions.find((s) => s.id === currentSessionId);
   if (!session) return;
   session.finalsStatus = finalsStatusEl.value;
-  finalsBlock.style.display = session.finalsStatus === 'made' ? 'block' : 'none';
+  finalsBlock.style.display =
+    session.finalsStatus === "made" ? "block" : "none";
   syncCurrentSessionMeta();
 });
 
-noPointsEl.addEventListener('change', () => {
+noPointsEl.addEventListener("change", () => {
   if (noPointsEl.checked) {
-    pointsEl.value = '';
+    pointsEl.value = "";
     pointsEl.disabled = true;
   } else {
     pointsEl.disabled = false;
@@ -312,14 +419,35 @@ noPointsEl.addEventListener('change', () => {
   syncCurrentSessionMeta();
 });
 
-meetNameEl.addEventListener('input', syncCurrentSessionMeta);
-locationEl.addEventListener('input', syncCurrentSessionMeta);
-dateEl.addEventListener('input', syncCurrentSessionMeta);
-placeEl.addEventListener('input', syncCurrentSessionMeta);
-detailsEl.addEventListener('input', syncCurrentSessionMeta);
-pointsEl.addEventListener('input', syncCurrentSessionMeta);
+meetNameEl.addEventListener("input", syncCurrentSessionMeta);
+locationEl.addEventListener("input", syncCurrentSessionMeta);
+dateEl.addEventListener("input", syncCurrentSessionMeta);
+placeEl.addEventListener("input", syncCurrentSessionMeta);
+detailsEl.addEventListener("input", syncCurrentSessionMeta);
+pointsEl.addEventListener("input", syncCurrentSessionMeta);
 
-// Initial render: list view
-renderSessionList();
-sessionListView.style.display = 'block';
-sessionDetailView.style.display = 'none';
+// Firebase: after auth, subscribe to Firestore sessions
+authReady.then((user) => {
+  currentUser = user;
+  const q = query(
+    collection(db, "sessions"),
+    where("userId", "==", user.uid),
+    orderBy("createdAt", "desc")
+  );
+
+  onSnapshot(q, (snapshot) => {
+    sessions = snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    }));
+    // If detail view open, keep it; else show list
+    if (!currentSessionId) {
+      renderSessionList();
+      sessionListView.style.display = "block";
+      sessionDetailView.style.display = "none";
+    } else {
+      // Refresh cards; current detail will be updated next time you open it
+      renderSessionList();
+    }
+  });
+});
