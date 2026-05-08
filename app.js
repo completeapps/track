@@ -1,28 +1,9 @@
-// Elements
-const sessionListView = document.getElementById('sessionListView');
-const sessionDetailView = document.getElementById('sessionDetailView');
-const sessionGrid = document.getElementById('sessionGrid');
-const addSessionBtn = document.getElementById('addSession');
+// app.js (module)
 
-const meetNameEl = document.getElementById('meetName');
-const locationEl = document.getElementById('location');
-const dateEl = document.getElementById('date');
-
-const prelimsList = document.getElementById('prelimsList');
-const finalsList = document.getElementById('finalsList');
-const addPrelimBtn = document.getElementById('addPrelim');
-const addFinalBtn = document.getElementById('addFinal');
-const finalsStatusEl = document.getElementById('finalsStatus');
-const finalsBlock = document.getElementById('finalsBlock');
-const placeEl = document.getElementById('place');
-const pointsEl = document.getElementById('points');
-const noPointsEl = document.getElementById('noPoints');
-const detailsEl = document.getElementById('details');
-
-// Simple in-memory sessions
 let sessions = [
   {
     id: 's1',
+    type: 'meet',
     name: 'Practice',
     location: 'Home track',
     date: '5/5/26',
@@ -40,6 +21,32 @@ let sessions = [
 ];
 
 let currentSessionId = null;
+let originalSnapshot = null;
+let dirty = false;
+
+// Elements
+const sessionListView = document.getElementById('sessionListView');
+const sessionDetailView = document.getElementById('sessionDetailView');
+const sessionGrid = document.getElementById('sessionGrid');
+const addSessionBtn = document.getElementById('addSession');
+const backToSessionsBtn = document.getElementById('backToSessions');
+const saveSessionBtn = document.getElementById('saveSession');
+const detailTitleEl = document.getElementById('detailTitle');
+
+const meetNameEl = document.getElementById('meetName');
+const locationEl = document.getElementById('location');
+const dateEl = document.getElementById('date');
+
+const prelimsList = document.getElementById('prelimsList');
+const finalsList = document.getElementById('finalsList');
+const addPrelimBtn = document.getElementById('addPrelim');
+const addFinalBtn = document.getElementById('addFinal');
+const finalsStatusEl = document.getElementById('finalsStatus');
+const finalsBlock = document.getElementById('finalsBlock');
+const placeEl = document.getElementById('place');
+const pointsEl = document.getElementById('points');
+const noPointsEl = document.getElementById('noPoints');
+const detailsEl = document.getElementById('details');
 
 // Helpers
 function formatMark(attempt) {
@@ -50,32 +57,58 @@ function formatMark(attempt) {
   return `${feet}' ${inches}"`;
 }
 
+function toInches(a) {
+  return (a.feet ?? 0) * 12 + (a.inches ?? 0);
+}
+
 function bestMark(session) {
   const all = [...session.prelims, ...session.finals].filter(a => !a.scratch && a.feet != null);
   if (all.length === 0) return '';
-  // Simple best: compare by total inches
-  const toInches = a => (a.feet ?? 0) * 12 + (a.inches ?? 0);
   const best = all.reduce((b, a) => (toInches(a) > toInches(b) ? a : b));
   return formatMark(best);
 }
 
-// Render sessions list
+function overallBestInches() {
+  const allAttempts = sessions.flatMap(s => [...s.prelims, ...s.finals].filter(a => !a.scratch && a.feet != null));
+  if (allAttempts.length === 0) return null;
+  return allAttempts.reduce((max, a) => Math.max(max, toInches(a)), 0);
+}
+
+// Sessions list
 function renderSessionList() {
+  const overallBest = overallBestInches();
   sessionGrid.innerHTML = '';
   sessions.forEach(session => {
+    const bm = bestMark(session);
+    const hasBest = bm && overallBest !== null && toInchesFromString(bm) === overallBest;
+
     const div = document.createElement('div');
-    div.className = 'session-card';
+    div.className = 'session-card' + (hasBest ? ' session-card-pr' : '');
     div.innerHTML = `
-      <div class="session-card-title">${session.name || 'Untitled'}</div>
+      <div class="session-card-title-row">
+        <div class="session-card-title">${session.name || 'Untitled'}</div>
+        <div class="session-card-type">${(session.type || 'session').toUpperCase()}</div>
+      </div>
       <div class="session-card-meta">${session.location || 'No location'} · ${session.date || 'No date'}</div>
-      <div class="session-card-mark">${bestMark(session) || '&nbsp;'}</div>
+      <div class="session-card-mark">
+        <span>${bm || 'No mark'}</span>
+      </div>
     `;
     div.addEventListener('click', () => openSession(session.id));
     sessionGrid.appendChild(div);
   });
 }
 
-// Open a session detail
+// Parse string like "18' 6.25\"" back to inches (used for PR highlight)
+function toInchesFromString(mark) {
+  const match = mark.match(/(\d+)'[\s]+([\d.]+)"/);
+  if (!match) return 0;
+  const feet = parseInt(match[1], 10);
+  const inches = parseFloat(match[2]);
+  return feet * 12 + inches;
+}
+
+// Open session detail
 function openSession(id) {
   const session = sessions.find(s => s.id === id);
   if (!session) return;
@@ -98,18 +131,21 @@ function openSession(id) {
     pointsEl.disabled = false;
   }
 
-  // Show/hide finals block
+  // Finals visibility
   finalsBlock.style.display = session.finalsStatus === 'made' ? 'block' : 'none';
 
-  // Render attempts
+  // Attempts
   renderAttempts(session);
 
-  // Switch views
+  // Dirty tracking
+  originalSnapshot = JSON.stringify(session);
+  dirty = false;
+  detailTitleEl.textContent = session.name || 'Session';
+
   sessionListView.style.display = 'none';
   sessionDetailView.style.display = 'block';
 }
 
-// Save current session fields back to object
 function syncCurrentSessionMeta() {
   if (!currentSessionId) return;
   const session = sessions.find(s => s.id === currentSessionId);
@@ -122,10 +158,13 @@ function syncCurrentSessionMeta() {
   session.place = placeEl.value.trim();
   session.details = detailsEl.value.trim();
   session.points = noPointsEl.checked ? null : (pointsEl.value === '' ? null : parseFloat(pointsEl.value));
+  detailTitleEl.textContent = session.name || 'Session';
+
+  const nowSnapshot = JSON.stringify(session);
+  dirty = nowSnapshot !== originalSnapshot;
 }
 
-// Attempt row builder
-function makeAttemptRow(attempt, list, type) {
+function makeAttemptRow(attempt) {
   const wrapper = document.createElement('div');
   wrapper.className = 'attempt-row';
   wrapper.innerHTML = `
@@ -146,16 +185,16 @@ function makeAttemptRow(attempt, list, type) {
         <input type="checkbox"${attempt.scratch ? ' checked' : ''}>
         <span>Scratch</span>
       </label>
-      <span class="muted" style="font-size:0.75rem;" data-preview></span>
+      <span class="attempt-preview">${formatMark(attempt)}</span>
     </div>
   `;
 
   const feetInput = wrapper.querySelectorAll('input[type="number"]')[0];
   const inchesInput = wrapper.querySelectorAll('input[type="number"]')[1];
   const scratchInput = wrapper.querySelector('input[type="checkbox"]');
-  const previewSpan = wrapper.querySelector('[data-preview]');
+  const previewSpan = wrapper.querySelector('.attempt-preview');
 
-  function updatePreview() {
+  function updatePreviewAndDirty() {
     previewSpan.textContent = formatMark(attempt);
     syncCurrentSessionMeta();
   }
@@ -163,35 +202,29 @@ function makeAttemptRow(attempt, list, type) {
   feetInput.addEventListener('input', () => {
     const v = feetInput.value;
     attempt.feet = v === '' ? null : parseInt(v, 10);
-    updatePreview();
+    updatePreviewAndDirty();
   });
 
   inchesInput.addEventListener('input', () => {
     const v = inchesInput.value;
     attempt.inches = v === '' ? null : parseFloat(v);
-    updatePreview();
+    updatePreviewAndDirty();
   });
 
   scratchInput.addEventListener('change', () => {
     attempt.scratch = scratchInput.checked;
-    updatePreview();
+    updatePreviewAndDirty();
   });
 
-  updatePreview();
   return wrapper;
 }
 
-// Render attempts for a session
 function renderAttempts(session) {
   prelimsList.innerHTML = '';
-  session.prelims.forEach(a => {
-    prelimsList.appendChild(makeAttemptRow(a, session.prelims, 'prelims'));
-  });
+  session.prelims.forEach(a => prelimsList.appendChild(makeAttemptRow(a)));
 
   finalsList.innerHTML = '';
-  session.finals.forEach(a => {
-    finalsList.appendChild(makeAttemptRow(a, session.finals, 'finals'));
-  });
+  session.finals.forEach(a => finalsList.appendChild(makeAttemptRow(a)));
 }
 
 // Add attempt
@@ -211,11 +244,12 @@ function addAttempt(scope) {
   syncCurrentSessionMeta();
 }
 
-// Events
-addSessionBtn.addEventListener('click', () => {
+// Create new session
+function createSession() {
   const id = 's' + Date.now().toString(36);
   const newSession = {
     id,
+    type: 'practice',
     name: 'New session',
     location: '',
     date: '',
@@ -229,11 +263,36 @@ addSessionBtn.addEventListener('click', () => {
   sessions.unshift(newSession);
   renderSessionList();
   openSession(id);
-});
+}
 
+// Save session (for now just updates snapshot; Firebase later)
+function saveCurrentSession() {
+  syncCurrentSessionMeta();
+  if (!currentSessionId) return;
+  const session = sessions.find(s => s.id === currentSessionId);
+  if (!session) return;
+  originalSnapshot = JSON.stringify(session);
+  dirty = false;
+  // TODO: later: push to Firebase here
+}
+
+// Events
+addSessionBtn.addEventListener('click', createSession);
 addPrelimBtn.addEventListener('click', () => addAttempt('prelims'));
 addFinalBtn.addEventListener('click', () => addAttempt('finals'));
+saveSessionBtn.addEventListener('click', saveCurrentSession);
 
+backToSessionsBtn.addEventListener('click', () => {
+  if (dirty) {
+    const ok = confirm('You have unsaved changes. Go back and lose changes?');
+    if (!ok) return;
+  }
+  sessionDetailView.style.display = 'none';
+  sessionListView.style.display = 'block';
+  renderSessionList();
+});
+
+// Finals status + meta inputs
 finalsStatusEl.addEventListener('change', () => {
   if (!currentSessionId) return;
   const session = sessions.find(s => s.id === currentSessionId);
@@ -258,6 +317,7 @@ locationEl.addEventListener('input', syncCurrentSessionMeta);
 dateEl.addEventListener('input', syncCurrentSessionMeta);
 placeEl.addEventListener('input', syncCurrentSessionMeta);
 detailsEl.addEventListener('input', syncCurrentSessionMeta);
+pointsEl.addEventListener('input', syncCurrentSessionMeta);
 
 // Initial render: list view
 renderSessionList();
