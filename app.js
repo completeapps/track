@@ -1,24 +1,29 @@
-// app.js (module)
-import { db, authReady } from "./firebase.js";
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  onSnapshot,
-  query,
-  where,
-  orderBy,
-  serverTimestamp
-} from "firebase/firestore";
+// app.js – no Firebase, local sessions only
 
-// Local state
-let sessions = [];
+let sessions = [
+  {
+    id: "s1",
+    type: "meet",
+    name: "Practice",
+    location: "Home track",
+    date: "5/5/26",
+    finalsStatus: "none",
+    prelims: [
+      { index: 1, feet: 18, inches: 6.25, scratch: false },
+      { index: 2, feet: 18, inches: 10.5, scratch: false },
+      { index: 3, feet: 19, inches: 0, scratch: true }
+    ],
+    finals: [],
+    place: "",
+    points: null,
+    details: ""
+  }
+];
+
 let currentSessionId = null;
 let originalSnapshot = null;
 let dirty = false;
 let mode = "view"; // "view" | "edit"
-let currentUser = null;
 
 // Elements
 const sessionListView = document.getElementById("sessionListView");
@@ -103,10 +108,8 @@ function setDetailMode(nextMode) {
   inputs.forEach((el) => {
     el.disabled = !isEdit;
   });
-  // attempts (Feet/Inches/Scratch) disabled state handled via class
-  const attemptInputs = sessionDetailView.querySelectorAll(
-    ".attempt-row input"
-  );
+
+  const attemptInputs = sessionDetailView.querySelectorAll(".attempt-row input");
   attemptInputs.forEach((input) => {
     input.disabled = !isEdit;
   });
@@ -280,7 +283,6 @@ function renderAttempts(session) {
     finalsList.appendChild(makeAttemptRow(a))
   );
 
-  // Respect current mode
   setDetailMode(mode);
 }
 
@@ -306,12 +308,11 @@ function addAttempt(scope) {
   syncCurrentSessionMeta();
 }
 
-// Create new session (in Firestore)
-async function createSession() {
-  if (!currentUser) return;
-  const colRef = collection(db, "sessions");
-  const docRef = await addDoc(colRef, {
-    userId: currentUser.uid,
+// Create new session
+function createSession() {
+  const id = "s" + Date.now().toString(36);
+  const newSession = {
+    id,
     type: "practice",
     name: "New session",
     location: "",
@@ -321,45 +322,23 @@ async function createSession() {
     finals: [],
     place: "",
     points: null,
-    details: "",
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
-  // Firestore snapshot listener will pick it up and call openSession when we click it
+    details: ""
+  };
+  sessions.unshift(newSession);
+  renderSessionList();
+  openSession(id);
 }
 
-// Save current session to Firestore
-async function saveCurrentSession() {
+// Save current session (local only)
+function saveCurrentSession() {
   syncCurrentSessionMeta();
   if (!currentSessionId) return;
   const session = sessions.find((s) => s.id === currentSessionId);
   if (!session) return;
-
-  const docRef = doc(db, "sessions", session.id);
-  const payload = {
-    name: session.name || "",
-    location: session.location || "",
-    date: session.date || "",
-    finalsStatus: session.finalsStatus || "none",
-    prelims: session.prelims || [],
-    finals: session.finals || [],
-    place: session.place || "",
-    points: session.points ?? null,
-    details: session.details || "",
-    type: session.type || "practice",
-    updatedAt: serverTimestamp()
-  };
-
-  try {
-    await updateDoc(docRef, payload);
-    originalSnapshot = JSON.stringify(session);
-    dirty = false;
-    setDetailMode("view");
-    showSaved();
-  } catch (err) {
-    console.error("Save error", err);
-    alert("Failed to save session.");
-  }
+  originalSnapshot = JSON.stringify(session);
+  dirty = false;
+  setDetailMode("view");
+  showSaved();
 }
 
 // Saved label
@@ -376,10 +355,7 @@ function hideSaved() {
 }
 
 // Events
-addSessionBtn.addEventListener("click", () => {
-  createSession();
-});
-
+addSessionBtn.addEventListener("click", createSession);
 addPrelimBtn.addEventListener("click", () => addAttempt("prelims"));
 addFinalBtn.addEventListener("click", () => addAttempt("finals"));
 saveSessionBtn.addEventListener("click", saveCurrentSession);
@@ -426,28 +402,7 @@ placeEl.addEventListener("input", syncCurrentSessionMeta);
 detailsEl.addEventListener("input", syncCurrentSessionMeta);
 pointsEl.addEventListener("input", syncCurrentSessionMeta);
 
-// Firebase: after auth, subscribe to Firestore sessions
-authReady.then((user) => {
-  currentUser = user;
-  const q = query(
-    collection(db, "sessions"),
-    where("userId", "==", user.uid),
-    orderBy("createdAt", "desc")
-  );
-
-  onSnapshot(q, (snapshot) => {
-    sessions = snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    }));
-    // If detail view open, keep it; else show list
-    if (!currentSessionId) {
-      renderSessionList();
-      sessionListView.style.display = "block";
-      sessionDetailView.style.display = "none";
-    } else {
-      // Refresh cards; current detail will be updated next time you open it
-      renderSessionList();
-    }
-  });
-});
+// Initial render: list view
+renderSessionList();
+sessionListView.style.display = "block";
+sessionDetailView.style.display = "none";
